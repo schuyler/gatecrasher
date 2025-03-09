@@ -1,0 +1,19 @@
+#pyright: reportUndefinedVariable=false, reportInvalidTypeForm=false
+
+def nand(a, b) -> c:
+    c = ~(a & b) & 1
+
+def not_(a) -> b:
+    b = nand(a, a)
+
+def and_(a, b) -> c:
+    c = not_(nand(a, b))
+
+def sr_latch(s, r) -> (q, q_):
+    q = nand(not_(s), q_)
+    q_ = nand(not_(r), q)
+
+def d_flip_flop(d, clk) -> q:
+    s = and_(d, clk)
+    r = and_(not_(d), clk)
+    q, _ = sr_latch(s, r)
