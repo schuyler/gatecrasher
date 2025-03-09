@@ -10,6 +10,10 @@ import os
 
 class CircuitConsole(code.InteractiveConsole):
     def __init__(self, circuits):
+        # Add help to the local namespace
+        circuits['help'] = self.help
+        circuits['?'] = self.help
+        
         super().__init__(locals=circuits)
         self.current_circuit = None
         self.current_func = None
@@ -23,10 +27,34 @@ class CircuitConsole(code.InteractiveConsole):
         except FileNotFoundError:
             pass
         atexit.register(readline.write_history_file, self.histfile)
+
+    def help(self):
+        """Display help information about using the Circuit REPL."""
+        print("""
+Circuit REPL Help:
+-----------------
+@<name>     Select a circuit by name (e.g., @and_gate)
+<input>     Toggle an input value (0/1) for the current circuit
+<enter>     Re-run the current circuit with existing inputs
+
+Examples:
+    @and_gate    Select the AND gate circuit
+    a           Toggle input 'a'
+    b           Toggle input 'b'
+    <enter>     Re-run with current inputs
+
+Tips:
+- The current state and inputs are shown after selecting a circuit
+- Outputs are displayed automatically after each input toggle
+- Use help() or ?() to show this message
+""")
     
     def runsource(self, source, filename="<input>", symbol="single"):
         source = source.strip()
-        if not source and self.current_circuit:
+        if source in ('help', '?'):
+            self.help()
+            return False
+        elif not source and self.current_circuit:
             # Re-run circuit with current inputs on empty input
             _ = self._trigger_circuit()
             return False
@@ -111,9 +139,10 @@ def main():
     tree, parts = compiler.parse_script(code)
     circuits = compiler.exec_tree(tree, parts)
     
-    # Start the interactive console
+    # Start the interactive console with help text
     console = CircuitConsole(circuits)
-    console.interact(banner="Circuit REPL")
+    console.help()
+    console.interact(banner="")
 
 if __name__ == "__main__":
     main()
