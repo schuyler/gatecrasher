@@ -10,9 +10,10 @@ import os
 
 class CircuitConsole(code.InteractiveConsole):
     def __init__(self, circuits):
-        # Add help to the local namespace
+        # Add help and list to the local namespace
         circuits['help'] = self.help
         circuits['?'] = self.help
+        circuits['list'] = self.list_circuits
         
         super().__init__(locals=circuits)
         self.current_circuit = None
@@ -28,6 +29,15 @@ class CircuitConsole(code.InteractiveConsole):
             pass
         atexit.register(readline.write_history_file, self.histfile)
 
+    def list_circuits(self):
+        """Display all available circuits."""
+        print("\nAvailable Circuits:")
+        print("-----------------")
+        for name, obj in self.locals.items():
+            if callable(obj) and name not in ('help', '?', 'list'):
+                print(f"@{name}")
+        print()
+
     def help(self):
         """Display help information about using the Circuit REPL."""
         print("""
@@ -36,9 +46,10 @@ Circuit REPL Help:
 @<name>     Select a circuit by name (e.g., @and_gate)
 <input>     Toggle an input value (0/1) for the current circuit
 <enter>     Re-run the current circuit with existing inputs
+list()      Display all available circuits
 
 Examples:
-    @and_gate    Select the AND gate circuit
+    @nand       Select the nand circuit
     a           Toggle input 'a'
     b           Toggle input 'b'
     <enter>     Re-run with current inputs
@@ -51,8 +62,11 @@ Tips:
     
     def runsource(self, source, filename="<input>", symbol="single"):
         source = source.strip()
-        if source in ('help', '?'):
-            self.help()
+        if source in ('help', '?', 'list'):
+            if source == 'list':
+                self.list_circuits()
+            else:
+                self.help()
             return False
         elif not source and self.current_circuit:
             # Re-run circuit with current inputs on empty input
@@ -124,7 +138,7 @@ Tips:
         return result
     
     def _display_state(self):
-        print(f"\nCircuit: {self.current_func}")
+        print(f"Loaded: {self.current_func}")
         inputs_str = ", ".join(f"{k}={v}" for k, v in self.inputs.items())
         print(f"{{{inputs_str}}} -> {{...}}")
 
