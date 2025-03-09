@@ -149,12 +149,16 @@ def parse_script(fn_def):
     tracker.analyze()
     rewriter = RewriteDeclarations(tracker.parts)
     rewriter.visit(tree)
-    return tree
+    return tree, tracker.parts
 
-def exec_tree(tree):
+def exec_tree(tree, parts):
     defs = {"__builtins__": {}}
     code = compile(tree, filename="<ast>", mode="exec")
     exec(code, defs)
+    # Attach output names to each function
+    for name, part in parts.items():
+        if name in defs:
+            defs[name].output_names = part["returns"]
     return defs
 
 def build(fn):
@@ -170,10 +174,10 @@ if __name__ == "__main__":
     with open(sys.argv[1]) as f:
         fn_def = f.read()
     print("\nTransformed Python code:\n" + "-"*30 + "\n")
-    tree = parse_script(fn_def)
+    tree, parts = parse_script(fn_def)
     print(unparse(tree))
 
     print("\nCompiled Python functions:\n" + "-"*30 + "\n")
-    defs = exec_tree(tree)
+    defs = exec_tree(tree, parts)
     pprint(tuple(k for k in defs.keys() if not k.startswith("__")))
     print("\n")
