@@ -26,7 +26,11 @@ class CircuitConsole(code.InteractiveConsole):
     
     def runsource(self, source, filename="<input>", symbol="single"):
         source = source.strip()
-        if source.startswith("@"):
+        if not source and self.current_circuit:
+            # Re-run circuit with current inputs on empty input
+            _ = self._trigger_circuit()
+            return False
+        elif source.startswith("@"):
             func_name = source[1:]
             if func_name in self.locals:
                 # Get the original function object
@@ -48,16 +52,8 @@ class CircuitConsole(code.InteractiveConsole):
             if self.current_circuit:
                 # Toggle the input
                 self.inputs[source] = 1 - self.inputs[source]
-                # Run circuit with current inputs
-                result = self._trigger_circuit()
-                # Format inputs and outputs
-                inputs_str = ", ".join(f"{k}={v}" for k, v in self.inputs.items())
-                func = self.locals[self.current_func]
-                if isinstance(result, tuple):
-                    outputs_str = ", ".join(f"{name}={value}" for name, value in zip(func.output_names, result))
-                else:
-                    outputs_str = f"{func.output_names[0]}={result}"
-                print(f"{{{inputs_str}}} -> {{{outputs_str}}}")
+                # Run circuit with current inputs - outputs handled in _trigger_circuit
+                _ = self._trigger_circuit()
             else:
                 print("No circuit selected. Use @<func> to select a circuit.")
             return False
@@ -66,7 +62,37 @@ class CircuitConsole(code.InteractiveConsole):
     
     def _trigger_circuit(self):
         input_values = [self.inputs[name] for name in self.inputs]
-        result, self.state = self.current_circuit(*(input_values + [self.state]))
+        MAX_ITERATIONS = 100  # Safety limit to prevent infinite loops
+        iteration = 0
+        prev_result = None
+
+        while iteration < MAX_ITERATIONS:
+            result, self.state = self.current_circuit(*(input_values + [self.state]))
+            
+            # Format outputs
+            func = self.locals[self.current_func]
+            if isinstance(result, tuple):
+                outputs_str = ", ".join(f"{name}={value}" for name, value in zip(func.output_names, result))
+            else:
+                outputs_str = f"{func.output_names[0]}={result}"
+            
+            # Check for stabilization before printing
+            if result == prev_result:
+                break
+
+            # Display with inputs only on first iteration, subsequent outputs indented
+            if iteration == 0:
+                inputs_str = ", ".join(f"{k}={v}" for k, v in self.inputs.items())
+                full_line = f"{{{inputs_str}}} -> {{{outputs_str}}}"
+                print(full_line)
+                # Calculate padding based on actual input length
+                self.arrow_padding = len(full_line) - len(f" -> {{{outputs_str}}}")
+            else:
+                print(f"{' ' * self.arrow_padding} -> {{{outputs_str}}}")
+
+            prev_result = result
+            iteration += 1
+
         return result
     
     def _display_state(self):
